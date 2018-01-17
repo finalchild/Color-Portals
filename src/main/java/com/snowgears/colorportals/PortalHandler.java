@@ -1,14 +1,5 @@
 package com.snowgears.colorportals;
 
-/**
- * This class handles all of the basic functions in the managing of Portals.
- * - Managing HashMap of Portals
- *    - Adding Portals
- *    - Removing Portals
- * - Saving data file
- * - Loading data file
- */
-
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -16,18 +7,25 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.configuration.file.YamlConfiguration;
 
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 
-
+/**
+ * This class handles all of the basic functions in the managing of Portals.
+ * - Managing HashMap of Portals
+ * - Adding Portals
+ * - Removing Portals
+ * - Saving data file
+ * - Loading data file
+ */
 public class PortalHandler {
 
-    public ColorPortals plugin = ColorPortals.getPlugin();
+    public ColorPortals plugin;
 
-    private HashMap<Location, Portal> allPortals = new HashMap<Location, Portal>();
+    private Map<Location, Portal> allPortals = new HashMap<>();
 
     public PortalHandler(ColorPortals instance) {
         plugin = instance;
@@ -40,7 +38,7 @@ public class PortalHandler {
     public void registerPortal(Portal portal) {
         allPortals.put(portal.getSignLocation(), portal);
 
-        ArrayList<Portal> portalFamily = this.getPortalFamily(portal);
+        List<Portal> portalFamily = this.getPortalFamily(portal);
         if (portalFamily.size() == 1) {
             portal.setLinkedPortal(null);
             return;
@@ -99,10 +97,10 @@ public class PortalHandler {
     /**
      * Finds all portals with the same color and channel as the portal provided
      * Return:
-     * - arraylist of all portals in the family (matching color and channel)
+     * - List of all portals in the family (matching color and channel)
      */
-    public ArrayList<Portal> getPortalFamily(Portal portal) {
-        ArrayList<Portal> portalFamily = new ArrayList<Portal>();
+    public List<Portal> getPortalFamily(Portal portal) {
+        List<Portal> portalFamily = new ArrayList<>();
         for (Portal checkedPortal : plugin.getPortalHandler().getAllPortals()) {
             if (checkedPortal.getChannel() == portal.getChannel() && checkedPortal.getColor().equals(portal.getColor())) {
                 portalFamily.add(checkedPortal);
@@ -115,10 +113,10 @@ public class PortalHandler {
     /**
      * Finds all portals with the same color and channel as the ones provided
      * Return:
-     * - arraylist of all portals in the family (matching color and channel)
+     * - List of all portals in the family (matching color and channel)
      */
-    public ArrayList<Portal> getPortalFamily(Integer channel, DyeColor color) {
-        ArrayList<Portal> portalFamily = new ArrayList<Portal>();
+    public List<Portal> getPortalFamily(Integer channel, DyeColor color) {
+        List<Portal> portalFamily = new ArrayList<>();
         for (Portal checkedPortal : plugin.getPortalHandler().getAllPortals()) {
             if (checkedPortal.getChannel() == channel && checkedPortal.getColor().equals(color)) {
                 portalFamily.add(checkedPortal);
@@ -128,36 +126,38 @@ public class PortalHandler {
         return portalFamily;
     }
 
-    private ArrayList<Portal> orderedPortalList() {
-        ArrayList<Portal> list = new ArrayList<Portal>(allPortals.values());
+    private List<Portal> orderedPortalList() {
+        List<Portal> list = new ArrayList<>(allPortals.values());
         Collections.sort(list);
         return list;
     }
 
     public void savePortals() {
-        File fileDirectory = new File(plugin.getDataFolder(), "Data");
-        if (!fileDirectory.exists())
-            fileDirectory.mkdir();
-        File portalFile = new File(fileDirectory + "/portals.yml");
-        if (!portalFile.exists()) { // file doesn't exist
+        Path fileDirectory = plugin.getDataFolder().toPath().resolve("Data");
+        if (Files.notExists(fileDirectory)) {
             try {
-                portalFile.createNewFile();
+                Files.createDirectory(fileDirectory);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        Path portalFile = fileDirectory.resolve("portals.yml");
+        if (Files.notExists(portalFile)) { // file doesn't exist
+            try {
+                Files.createFile(portalFile);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         } else { //does exist, clear it for future saving
-            PrintWriter writer = null;
             try {
-                writer = new PrintWriter(portalFile);
-            } catch (FileNotFoundException e) {
+                Files.newBufferedWriter(portalFile, StandardCharsets.UTF_8).close();
+            } catch (IOException e) {
                 e.printStackTrace();
             }
-            writer.print("");
-            writer.close();
         }
 
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(portalFile);
-        ArrayList<Portal> portalList = orderedPortalList();
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(portalFile.toFile());
+        List<Portal> portalList = orderedPortalList();
 
         for (Portal portal : portalList) {
             config.set("portals." + portal.getColor().toString() + "." + portal.getChannel() + "-" + portal.getNode() + ".name", portal.getName());
@@ -166,31 +166,33 @@ public class PortalHandler {
         }
 
         try {
-            config.save(portalFile);
+            config.save(portalFile.toFile());
         } catch (IOException ioe) {
             ioe.printStackTrace();
         }
     }
 
     public void loadPortals() {
-        File fileDirectory = new File(plugin.getDataFolder(), "Data");
-        if (!fileDirectory.exists())
+        Path fileDirectory = plugin.getDataFolder().toPath().resolve("Data");
+        if (Files.notExists(fileDirectory)) {
             return;
-        File portalFile = new File(fileDirectory + "/portals.yml");
-        if (!portalFile.exists())
+        }
+        Path portalFile = fileDirectory.resolve("portals.yml");
+        if (Files.notExists(portalFile)) {
             return;
+        }
 
-        YamlConfiguration config = YamlConfiguration.loadConfiguration(portalFile);
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(portalFile.toFile());
         loadPortalsFromConfig(config);
     }
 
     private void loadPortalsFromConfig(YamlConfiguration config) {
-
-        if (config.getConfigurationSection("portals") == null)
+        if (config.getConfigurationSection("portals") == null) {
             return;
+        }
         Set<String> allPortalColors = config.getConfigurationSection("portals").getKeys(false);
 
-        ArrayList<Portal> portalFamily = new ArrayList<Portal>();
+        List<Portal> portalFamily = new ArrayList<>();
 
         //  for (String portalColor : allPortalColors) {
         for (Iterator<String> colorIterator = allPortalColors.iterator(); colorIterator.hasNext(); ) {
@@ -213,7 +215,6 @@ public class PortalHandler {
                 Block signBlock = signLocation.getBlock();
 
                 if (signBlock.getType() == Material.WALL_SIGN) {
-
                     DyeColor color = DyeColor.valueOf(portalColor);
 
                     String[] split = portalChannel.split("-");
@@ -226,7 +227,6 @@ public class PortalHandler {
                     UUID creator = UUID.fromString(creatorString);
 
                     Portal portal = new Portal(creator, name, color, channel, node, signLocation);
-
 
                     //previous portal was the last portal in the family (same color, different channel)
                     //portal working with now is the first portal of the new family
@@ -279,4 +279,5 @@ public class PortalHandler {
         String[] parts = loc.split(",");
         return new Location(plugin.getServer().getWorld(parts[0]), Double.parseDouble(parts[1]), Double.parseDouble(parts[2]), Double.parseDouble(parts[3]));
     }
+
 }

@@ -16,13 +16,11 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPhysicsEvent;
 import org.bukkit.material.Sign;
 
-import java.util.ArrayList;
-
+import java.util.List;
 
 public class PortalListener implements Listener {
 
-
-    public ColorPortals plugin = ColorPortals.getPlugin();
+    private ColorPortals plugin;
 
     public PortalListener(ColorPortals instance) {
         plugin = instance;
@@ -66,7 +64,6 @@ public class PortalListener implements Listener {
     }
 
     public boolean frameIsComplete(Location signLocation) {
-
         Sign sign = (Sign) signLocation.getBlock().getState().getData();
         Block keyBlock = signLocation.getBlock().getRelative(sign.getAttachedFace());
         DyeColor color = plugin.getBukkitUtils().getWoolColor(keyBlock);
@@ -102,13 +99,12 @@ public class PortalListener implements Listener {
             return false;
         Block plateBlock = bottomMid.getRelative(BlockFace.UP);
         return plateBlock.getType() == Material.STONE_PLATE || plateBlock.getType() == Material.WOOD_PLATE || plateBlock.getType() == Material.IRON_PLATE || plateBlock.getType() == Material.GOLD_PLATE;
-
     }
 
     public boolean checkPortalDistance(Location currentLoc, Player player, int channel, DyeColor color) {
         if (plugin.getMinDistance() != 0 || plugin.getMaxDistance() != 0) {
             if (plugin.getUsePerms() && !player.hasPermission("colorportals.nodistance")) {
-                ArrayList<Portal> portals = plugin.getPortalHandler().getPortalFamily(channel, color);
+                List<Portal> portals = plugin.getPortalHandler().getPortalFamily(channel, color);
                 if (portals.size() != 0) {
                     Portal toConnect = portals.get(portals.size() - 1);
                     Location connectLoc = toConnect.getSignLocation();
@@ -139,4 +135,5 @@ public class PortalListener implements Listener {
         }
         return true;
     }
+
 }

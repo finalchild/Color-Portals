@@ -1,6 +1,5 @@
 package com.snowgears.colorportals;
 
-
 import com.snowgears.colorportals.utils.BukkitUtils;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -10,7 +9,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.material.Sign;
 
 import java.util.*;
-
+import java.util.stream.Collectors;
 
 public class Portal implements Comparable<Portal> {
 
@@ -37,45 +36,38 @@ public class Portal implements Comparable<Portal> {
     }
 
     public void updateSign() {
+        ColorPortals.getPlugin().getServer().getScheduler().scheduleSyncDelayedTask(ColorPortals.getPlugin(), () -> {
+            if (signLocation.getBlock().getType() == Material.WALL_SIGN) {
+                org.bukkit.block.Sign sign = (org.bukkit.block.Sign) signLocation.getBlock().getState();
+                sign.setLine(0, name);
+                sign.setLine(1, channel + "." + node);
 
-        ColorPortals.getPlugin().getServer().getScheduler().scheduleSyncDelayedTask(ColorPortals.getPlugin(), new Runnable() {
-            public void run() {
-
-                if (signLocation.getBlock().getType() == Material.WALL_SIGN) {
-                    org.bukkit.block.Sign sign = (org.bukkit.block.Sign) signLocation.getBlock().getState();
-                    sign.setLine(0, name);
-                    sign.setLine(1, channel + "." + node);
-
-                    if (linkedPortal != null) {
-                        sign.setLine(2, ChatColor.GREEN + "Warps To:");
-                        sign.setLine(3, linkedPortal.getName());
-                    } else {
-                        sign.setLine(2, "");
-                        sign.setLine(3, ChatColor.GRAY + "INACTIVE");
-                    }
-                    sign.update(true);
+                if (linkedPortal != null) {
+                    sign.setLine(2, ChatColor.GREEN + "Warps To:");
+                    sign.setLine(3, linkedPortal.getName());
+                } else {
+                    sign.setLine(2, "");
+                    sign.setLine(3, ChatColor.GRAY + "INACTIVE");
                 }
-
+                sign.update(true);
             }
         }, 2L);
     }
 
     public void remove() {
-        ColorPortals.getPlugin().getServer().getScheduler().scheduleSyncDelayedTask(ColorPortals.getPlugin(), new Runnable() {
-            public void run() {
-                //first update the sign (if the sign is still on the portal)
-                if (signLocation.getBlock().getType() == Material.WALL_SIGN) {
-                    org.bukkit.block.Sign sign = (org.bukkit.block.Sign) signLocation.getBlock().getState();
-                    sign.setLine(0, ChatColor.RED + "PORTAL");
-                    sign.setLine(1, ChatColor.RED + "DESTROYED");
-                    sign.setLine(2, "");
-                    sign.setLine(3, "");
-                    sign.update(true);
-                }
+        ColorPortals.getPlugin().getServer().getScheduler().scheduleSyncDelayedTask(ColorPortals.getPlugin(), () -> {
+            //first update the sign (if the sign is still on the portal)
+            if (signLocation.getBlock().getType() == Material.WALL_SIGN) {
+                org.bukkit.block.Sign sign = (org.bukkit.block.Sign) signLocation.getBlock().getState();
+                sign.setLine(0, ChatColor.RED + "PORTAL");
+                sign.setLine(1, ChatColor.RED + "DESTROYED");
+                sign.setLine(2, "");
+                sign.setLine(3, "");
+                sign.update(true);
             }
         }, 2L);
         //then calculate which portals are before and after this portal
-        ArrayList<Portal> portalFamily = ColorPortals.getPlugin().getPortalHandler().getPortalFamily(this);
+        List<Portal> portalFamily = ColorPortals.getPlugin().getPortalHandler().getPortalFamily(this);
 
         int beforeRemovedIndex = portalFamily.indexOf(this) - 1;
         if (beforeRemovedIndex < 0)
@@ -116,11 +108,7 @@ public class Portal implements Comparable<Portal> {
                 }
             }
         }
-        ColorPortals.getPlugin().getServer().getScheduler().scheduleSyncDelayedTask(ColorPortals.getPlugin(), new Runnable() {
-            public void run() {
-                warpLocation.getWorld().playSound(warpLocation, Sound.ENTITY_ENDERMEN_TELEPORT, 1.0F, 0.5F);
-            }
-        }, 2L);
+        ColorPortals.getPlugin().getServer().getScheduler().scheduleSyncDelayedTask(ColorPortals.getPlugin(), () -> warpLocation.getWorld().playSound(warpLocation, Sound.ENTITY_ENDERMEN_TELEPORT, 1.0F, 0.5F), 2L);
         linkedPortal.getWarpLocation().getWorld().playSound(linkedPortal.getWarpLocation(), Sound.ENTITY_ENDERMEN_TELEPORT, 1.0F, 0.5F);
     }
 
@@ -129,14 +117,10 @@ public class Portal implements Comparable<Portal> {
     }
 
     public Collection<Block> getOccupiedBlocks() {
-        ArrayList<Block> occupiedBlocks = new ArrayList<Block>(occupiedLocations.size());
-        for (Location loc : occupiedLocations) {
-            occupiedBlocks.add(loc.getBlock());
-        }
-        return occupiedBlocks;
+        return occupiedLocations.stream().map(Location::getBlock).collect(Collectors.toList());
     }
 
-    public void printInfo(Player player){
+    public void printInfo(Player player) {
         player.sendMessage(ChatColor.GOLD + "Portal: " + this.getName());
         player.sendMessage(ChatColor.GRAY + "   - Color: " + this.getColor().toString() + ", Channel: " + this.getChannel());
         player.sendMessage(ChatColor.GRAY + "   - Node: " + this.getNode() + " out of " + ColorPortals.getPlugin().getPortalHandler().getPortalFamily(this).size());
@@ -150,12 +134,11 @@ public class Portal implements Comparable<Portal> {
         player.sendMessage(ChatColor.GRAY + "      - Name: " + this.getLinkedPortal().getName());
         //portals warp to the same world
         if (this.getWarpLocation().getWorld().toString().equals(this.getLinkedPortal().getWarpLocation().getWorld().toString())) {
-            HashMap<BlockFace, Integer> cardinalDistances = BukkitUtils.getCardinalDistances(this.getWarpLocation(), this.getLinkedPortal().getWarpLocation());
-            String cardinalMessage = "";
+            Map<BlockFace, Integer> cardinalDistances = BukkitUtils.getCardinalDistances(this.getWarpLocation(), this.getLinkedPortal().getWarpLocation());
+            StringJoiner cardinalMessage = new StringJoiner(", ");
             for (BlockFace direction : cardinalDistances.keySet()) {
-                cardinalMessage += direction.toString() + ": " + cardinalDistances.get(direction) + " blocks, ";
+                cardinalMessage.add(direction.toString() + ": " + cardinalDistances.get(direction) + " blocks");
             }
-            cardinalMessage = cardinalMessage.substring(0, cardinalMessage.length() - 2);
             player.sendMessage(ChatColor.GRAY + "      - " + cardinalMessage);
         } else {
             player.sendMessage(ChatColor.GRAY + "      - Location: " + this.getLinkedPortal().getWarpLocation().getWorld().toString() + " (a different world)");
@@ -201,23 +184,23 @@ public class Portal implements Comparable<Portal> {
 
     public void setLinkedPortal(Portal p) {
         linkedPortal = p;
-        if (linkedPortal != null)
+        if (linkedPortal != null) {
             linkedPortal.updateSign();
-        else
+        } else {
             this.node = 1;
+        }
         this.updateSign();
     }
 
     @Override
     public int compareTo(Portal other) {
-
         int i = other.color.compareTo(color);
         if (i != 0) return i;
 
-        i = Integer.valueOf(channel).compareTo(Integer.valueOf(other.channel));
+        i = Integer.compare(channel, other.channel);
         if (i != 0) return i;
 
-        return Integer.valueOf(node).compareTo(Integer.valueOf(other.node));
+        return Integer.compare(node, other.node);
     }
 
     private void defineLocations() {
@@ -249,7 +232,7 @@ public class Portal implements Comparable<Portal> {
         Block rightLower = midLower.getRelative(travel.getOppositeFace());
         Block rightBottom = midBottom.getRelative(travel.getOppositeFace());
 
-        occupiedLocations = new ArrayList<Location>();
+        occupiedLocations = new ArrayList<>();
         occupiedLocations.add(signLocation);
         occupiedLocations.add(midTop.getLocation());
         occupiedLocations.add(midUpper.getLocation());
@@ -264,4 +247,5 @@ public class Portal implements Comparable<Portal> {
         occupiedLocations.add(rightLower.getLocation());
         occupiedLocations.add(rightBottom.getLocation());
     }
+
 }

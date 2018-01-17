@@ -1,6 +1,5 @@
 package com.snowgears.colorportals.listeners;
 
-
 import com.snowgears.colorportals.ColorPortals;
 import com.snowgears.colorportals.Portal;
 import com.snowgears.colorportals.events.CreatePortalEvent;
@@ -25,17 +24,16 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.material.Sign;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.UUID;
 
 
 public class EntityListener implements Listener {
 
-
-    public ColorPortals plugin = ColorPortals.getPlugin();
-    private HashMap<UUID, Boolean> noTeleportEntities = new HashMap<UUID, Boolean>();
+    private ColorPortals plugin;
+    private Set<UUID> noTeleportEntities = new HashSet<>();
 
     public EntityListener(ColorPortals instance) {
         plugin = instance;
@@ -109,13 +107,21 @@ public class EntityListener implements Listener {
         Portal portal = null;
 
         Material blockType = event.getBlock().getType();
-        if (blockType == Material.WALL_SIGN) {
-            portal = plugin.getPortalHandler().getPortal(event.getBlock().getLocation());
-        } else if (blockType == Material.WOOL) {
-            portal = plugin.getPortalHandler().getPortalByFrameLocation(event.getBlock().getLocation());
-        } else if (blockType == Material.WOOD_BUTTON || blockType == Material.STONE_BUTTON
-                || blockType == Material.WOOD_PLATE || blockType == Material.STONE_PLATE || blockType == Material.IRON_PLATE || blockType == Material.GOLD_PLATE) {
-            portal = plugin.getPortalHandler().getPortalByFrameLocation(event.getBlock().getLocation());
+        switch (blockType) {
+            case WALL_SIGN:
+                portal = plugin.getPortalHandler().getPortal(event.getBlock().getLocation());
+                break;
+            case WOOL:
+                portal = plugin.getPortalHandler().getPortalByFrameLocation(event.getBlock().getLocation());
+                break;
+            case WOOD_BUTTON:
+            case STONE_BUTTON:
+            case WOOD_PLATE:
+            case STONE_PLATE:
+            case IRON_PLATE:
+            case GOLD_PLATE:
+                portal = plugin.getPortalHandler().getPortalByFrameLocation(event.getBlock().getLocation());
+                break;
         }
 
         if (portal != null) {
@@ -141,7 +147,6 @@ public class EntityListener implements Listener {
                 Bukkit.getServer().getPluginManager().callEvent(e);
             }
         }
-
     }
 
     @EventHandler
@@ -166,10 +171,10 @@ public class EntityListener implements Listener {
     }
 
     @EventHandler
-    public void onPlayerSignClick(PlayerInteractEvent event){
-        if(event.getAction() == Action.RIGHT_CLICK_BLOCK){
+    public void onPlayerSignClick(PlayerInteractEvent event) {
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             Portal portal = plugin.getPortalHandler().getPortal(event.getClickedBlock().getLocation());
-            if(portal != null){
+            if (portal != null) {
                 portal.printInfo(event.getPlayer());
                 event.setCancelled(true);
             }
@@ -214,20 +219,23 @@ public class EntityListener implements Listener {
 
     @EventHandler
     public void onExplosion(EntityExplodeEvent event) {
-        final ArrayList<Block> blocksToDestroy = new ArrayList<Block>(50);
-
         //save all potential portal blocks (for sake of time during explosion)
         Iterator<Block> blockIterator = event.blockList().iterator();
         while (blockIterator.hasNext()) {
-
             Block block = blockIterator.next();
             Portal portal = null;
-            if(block.getType() == Material.WALL_SIGN){
-                portal = plugin.getPortalHandler().getPortal(block.getLocation());
-            }
-            else if (block.getType() == Material.WOOL || block.getType() == Material.WOOD_BUTTON || block.getType() == Material.STONE_BUTTON
-                    || block.getType() == Material.WOOD_PLATE || block.getType() == Material.STONE_PLATE || block.getType() == Material.IRON_PLATE || block.getType() == Material.GOLD_PLATE) {
-                portal = plugin.getPortalHandler().getPortalByFrameLocation(block.getLocation());
+            switch (block.getType()) {
+                case WALL_SIGN:
+                    portal = plugin.getPortalHandler().getPortal(block.getLocation());
+                    break;
+                case WOOL:
+                case WOOD_BUTTON:
+                case STONE_BUTTON:
+                case WOOD_PLATE:
+                case STONE_PLATE:
+                case IRON_PLATE:
+                case GOLD_PLATE:
+                    portal = plugin.getPortalHandler().getPortalByFrameLocation(block.getLocation());
             }
 
             if (portal != null) {
@@ -266,15 +274,12 @@ public class EntityListener implements Listener {
     }
 
     public void addNoTeleportEntity(final Entity entity) {
-        noTeleportEntities.put(entity.getUniqueId(), true);
-        plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
-            public void run() {
-                noTeleportEntities.remove(entity.getUniqueId());
-            }
-        }, 5L);
+        noTeleportEntities.add(entity.getUniqueId());
+        plugin.getServer().getScheduler().scheduleSyncDelayedTask(plugin, () -> noTeleportEntities.remove(entity.getUniqueId()), 5L);
     }
 
     public boolean entityCanBeTeleported(Entity entity) {
-        return noTeleportEntities.get(entity.getUniqueId()) == null;
+        return !noTeleportEntities.contains(entity.getUniqueId());
     }
+
 }
