@@ -5,3 +5,7 @@
 
 # Mac filesystem dust
 .DS_Store
+
+.gradle
+.idea
+build
